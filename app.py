@@ -121,7 +121,6 @@ if run and room_id_input:
         if target_txt == "今回":
             calc_base = now
         else:
-            # 「前回」の場合の基準日計算
             if p_val == 1: # 日間
                 calc_base = now - timedelta(days=1)
             elif p_val == 2: # 週間
@@ -129,19 +128,19 @@ if run and room_id_input:
             else: # 月間
                 calc_base = now - relativedelta(months=1)
 
-        # 期間に応じたAPI用ymdの確定
-        if p_val == 1:
+        # 期間に応じたAPI用日付と表示用ラベルの生成
+        if p_val == 1: # 日間
             target_ymd = calc_base.strftime('%Y%m%d')
-        elif p_val == 2:
-            # その日の週の月曜日
+            display_date = calc_base.strftime('%Y/%m/%d')
+        elif p_val == 2: # 週間
             monday = calc_base - timedelta(days=calc_base.weekday())
             target_ymd = monday.strftime('%Y%m%d')
-        else:
-            # その月の1日
+            display_date = f"{monday.strftime('%Y/%m/%d')}の週"
+        else: # 月間
             first_day = calc_base.replace(day=1)
             target_ymd = first_day.strftime('%Y%m%d')
+            display_date = first_day.strftime('%Y/%m')
         
-        # 表示用ラベル
         target_label = f"{period_txt}（{target_txt}）"
 
         with st.spinner(f'{target_label}のギフト一覧を取得中...'):
@@ -175,7 +174,8 @@ if run and room_id_input:
                 st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) の{target_label}状況")
 
                 fetched_at = now.strftime('%Y/%m/%d %H:%M:%S')
-                st.caption(f"（取得時刻: {fetched_at} 現在 / 対象日: {target_ymd}）")
+                # 修正ポイント: 取得時刻と対象日の表記を整理
+                st.caption(f"（取得時刻: {fetched_at} 現在 / 対象日: {display_date}）")
 
                 st.markdown("##### 📈 ランクイン状況一覧")
                 df = pd.DataFrame(results)
