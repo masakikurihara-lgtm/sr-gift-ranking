@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ページ設定
@@ -22,7 +22,6 @@ def get_allowed_rooms():
     """CSVから許可されたルームIDリストを取得"""
     try:
         df_rooms = pd.read_csv(ROOM_LIST_URL)
-        # 1列目の値を文字列のリストとして返す
         return df_rooms.iloc[:, 0].astype(str).tolist()
     except:
         return []
@@ -85,21 +84,16 @@ st.title("📊 ギフトランキング・ダッシュボード")
 
 with st.sidebar:
     room_id_input = st.text_input("Room ID", value="512751")
-    # バイパス用パスワード入力
     auth_key = st.text_input("認証キー", type="password")
     period_txt = st.radio("期間", ["日間", "週間", "月間"], horizontal=True)
     period_map = {"日間": 1, "週間": 2, "月間": 3}
     run = st.button("状況を更新する", type="primary")
 
 if run and room_id_input:
-    # --- 認証チェックロジック ---
     is_authorized = False
-    
-    # パスワードが一致するか確認
     if auth_key == "mksp":
         is_authorized = True
     else:
-        # CSVのリストに含まれているか確認
         allowed_rooms = get_allowed_rooms()
         if room_id_input in allowed_rooms:
             is_authorized = True
@@ -107,10 +101,11 @@ if run and room_id_input:
     if not is_authorized:
         st.error("認証されていないルームIDです。")
     else:
-        # 認証成功後の処理
-        now = datetime.now()
-        p_val = period_map[period_txt]
+        # 日本時間の取得（JST: UTC+9）
+        jst = timezone(timedelta(hours=9))
+        now = datetime.now(jst)
         
+        p_val = period_map[period_txt]
         if p_val == 1:
             target_ymd = now.strftime('%Y%m%d')
         elif p_val == 2:
@@ -143,16 +138,22 @@ if run and room_id_input:
             if results:
                 results.sort(key=lambda x: x['order'])
 
+                # 1点目: ギフトランキングページへのリンクを追加
+                st.markdown("▶ [ギフトランキングページへ](https://www.showroom-live.com/gift_ranking)")
+
                 display_name = results[0]['room_name']
                 profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id_input}"
                 
                 st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) のギフトランキング状況")
 
+                # 2点目: 取得時刻の表示（控えめなフォントサイズで表示）
+                fetched_at = now.strftime('%Y/%m/%d %H:%M:%S')
+                st.caption(f"（取得時刻: {fetched_at} 現在）")
+
                 st.subheader("📈 ランクイン状況一覧")
                 df = pd.DataFrame(results)
                 summary_df = df[["rank", "name", "score", "up", "down"]].copy()
                 summary_df.columns = ["順位", "ギフト名", "獲得数", "次まで", "下との差"]
-                
                 st.dataframe(summary_df, use_container_width=True, hide_index=True)
                 
                 st.divider()
@@ -167,12 +168,10 @@ if run and room_id_input:
                             st.write(f"現在の個数: **{item['score']:,} 個**")
                         with col3:
                             st.metric("現在の順位", f"{item['rank']}位")
-                            
                             if item['up'] is not None:
                                 st.write(f"🔼 **上の順位**まであと **{item['up']:,}** 個")
                             elif item['rank'] == 1:
                                 st.write("🏆 **現在1位です！**")
-                            
                             if item['down'] is not None:
                                 st.write(f"🔽 **下の順位**まであと **{item['down']:,}** 個")
                         st.divider()
