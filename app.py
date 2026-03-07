@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dateutil.relativedelta import relativedelta
 
 # ページ設定
 st.set_page_config(page_title="SHOWROOM ギフトランキング・ダッシュボード", layout="wide")
@@ -80,8 +81,6 @@ def get_gift_status(g_id, room_id, period, ymd, order):
     return None
 
 # --- メイン UI ---
-# st.title("📊 ギフトランキング・ダッシュボード")
-
 st.markdown(
     "<h1 style='font-size:28px; text-align:left; color:#1f2937;'>🎤 SHOWROOM ギフトランキング・ダッシュボード</h1>",
     unsafe_allow_html=True
@@ -90,7 +89,13 @@ st.markdown(
 with st.sidebar:
     room_id_input = st.text_input("Room ID", value="512751")
     auth_key = st.text_input("認証キー", type="password")
-    period_txt = st.radio("期間", ["日間", "週間", "月間"], horizontal=True)
+    
+    col_p, col_t = st.columns(2)
+    with col_p:
+        period_txt = st.radio("期間", ["日間", "週間", "月間"])
+    with col_t:
+        target_txt = st.radio("対象", ["今回", "前回"])
+        
     period_map = {"日間": 1, "週間": 2, "月間": 3}
     run = st.button("確認する", type="primary")
 
@@ -111,16 +116,35 @@ if run and room_id_input:
         now = datetime.now(jst)
         
         p_val = period_map[period_txt]
+        
+        # --- 日付計算ロジック ---
+        if target_txt == "今回":
+            calc_base = now
+        else:
+            # 「前回」の場合の基準日計算
+            if p_val == 1: # 日間
+                calc_base = now - timedelta(days=1)
+            elif p_val == 2: # 週間
+                calc_base = now - timedelta(days=7)
+            else: # 月間
+                calc_base = now - relativedelta(months=1)
+
+        # 期間に応じたAPI用ymdの確定
         if p_val == 1:
-            target_ymd = now.strftime('%Y%m%d')
+            target_ymd = calc_base.strftime('%Y%m%d')
         elif p_val == 2:
-            monday = now - timedelta(days=now.weekday())
+            # その日の週の月曜日
+            monday = calc_base - timedelta(days=calc_base.weekday())
             target_ymd = monday.strftime('%Y%m%d')
-        elif p_val == 3:
-            first_day = now.replace(day=1)
+        else:
+            # その月の1日
+            first_day = calc_base.replace(day=1)
             target_ymd = first_day.strftime('%Y%m%d')
         
-        with st.spinner(f'{period_txt}のギフト一覧を取得中...'):
+        # 表示用ラベル
+        target_label = f"{period_txt}（{target_txt}）"
+
+        with st.spinner(f'{target_label}のギフト一覧を取得中...'):
             master = get_gift_master()
         
         if master:
@@ -143,19 +167,16 @@ if run and room_id_input:
             if results:
                 results.sort(key=lambda x: x['order'])
 
-                # 1点目: ギフトランキングページへのリンクを追加
                 st.markdown("▶ [ギフトランキングページへ](https://www.showroom-live.com/gift_ranking)")
 
                 display_name = results[0]['room_name']
                 profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id_input}"
                 
-                st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) のギフトランキング状況")
+                st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) の{target_label}状況")
 
-                # 2点目: 取得時刻の表示（控えめなフォントサイズで表示）
                 fetched_at = now.strftime('%Y/%m/%d %H:%M:%S')
-                st.caption(f"（取得時刻: {fetched_at} 現在）")
+                st.caption(f"（取得時刻: {fetched_at} 現在 / 対象日: {target_ymd}）")
 
-                # st.subheader("📈 ランクイン状況一覧")
                 st.markdown("##### 📈 ランクイン状況一覧")
                 df = pd.DataFrame(results)
                 summary_df = df[["rank", "name", "score", "up", "down"]].copy()
@@ -171,9 +192,9 @@ if run and room_id_input:
                             st.image(item['img'], width=80)
                         with col2:
                             st.subheader(item['name'])
-                            st.write(f"現在の個数: **{item['score']:,} 個**")
+                            st.write(f"期間内の個数: **{item['score']:,} 個**")
                         with col3:
-                            st.metric("現在の順位", f"{item['rank']}位")
+                            st.metric("順位", f"{item['rank']}位")
                             if item['up'] is not None:
                                 st.write(f"🔼 **上の順位**まであと **{item['up']:,}** 個")
                             elif item['rank'] == 1:
@@ -182,4 +203,4 @@ if run and room_id_input:
                                 st.write(f"🔽 **下の順位**まであと **{item['down']:,}** 個")
                         st.divider()
             else:
-                st.warning(f"{period_txt}ランキングで100位以内に入っているギフトがありません。")
+                st.warning(f"{target_label}で100位以内に入っているギフトがありません。")
