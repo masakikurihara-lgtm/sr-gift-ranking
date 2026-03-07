@@ -8,7 +8,9 @@ st.set_page_config(page_title="SHOWROOMギフトランキング", layout="wide")
 
 def fetch_json(url, params=None):
     try:
-        res = requests.get(url, params=params, timeout=10)
+        # 【修正箇所】日本語のレスポンスを強制するため、言語設定ヘッダーを追加
+        headers = {"Accept-Language": "ja"}
+        res = requests.get(url, params=params, headers=headers, timeout=10)
         res.raise_for_status()
         return res.json()
     except:
