@@ -14,6 +14,7 @@ def fetch_json(url, params=None):
         return None
 
 def get_all_gift_ids():
+    """全ギフトのIDをページネーションして取得"""
     all_gifts = []
     page = 1
     while True:
@@ -28,94 +29,95 @@ def get_all_gift_ids():
     return all_gifts
 
 def process_gift(g_id, room_id, period_type, today, original_index):
-    # 個別ランキングAPIを叩く
-    detail_url = f"https://www.showroom-live.com/api/regular_gift_ranking/{g_id}"
+    """個別APIのレスポンスからギフト名とランキングを抽出"""
+    url = f"https://www.showroom-live.com/api/regular_gift_ranking/{g_id}"
     params = {'ymd': today, 'period': period_type, 'page': 1, 'count': 100}
-    detail = fetch_json(detail_url, params)
+    detail = fetch_json(url, params)
     
     if not detail or 'ranking_list' not in detail:
         return None
     
-    # 【修正の肝】JSONルート直下の gift_name をそのまま取得
-    # これが "デイリーグリッター(アニメ)" 等の正しい日本語表記です
-    gift_name_correct = detail.get('gift_name') 
+    # 【最重要】APIが返した gift_name をそのまま取得し、一切加工しない
+    raw_gift_name = detail.get('gift_name') 
     gift_image = detail.get('gift_image', '')
     ranking = detail['ranking_list']
     
-    # 自分のルームを特定
+    # 指定されたルームのランクイン情報を確認
     my_entry = next((r for r in ranking if r['room']['room_id'] == int(room_id)), None)
     
     if my_entry:
         my_score = my_entry['score']
         my_rank = my_entry['rank']
         
-        status = {
-            "original_index": original_index,
-            "icon": gift_image,
-            "name": gift_name_correct, # JSONの値を一切加工せず代入
+        # 必要な情報だけを詰めたクリーンな辞書を作成
+        res = {
+            "order": original_index,
+            "img": gift_image,
+            "display_name": raw_gift_name, # ここに日本語名がそのまま入ります
             "rank": my_rank,
             "score": my_score,
             "diff_up": None,
             "diff_down": None
         }
         
-        # --- 順位計算の修正 ---
-        # 「自分と同じスコア」の人を排除して比較対象を探す
+        # 順位差分の計算（自分よりスコアが上の最小値 / 下の最大値を探す）
         higher_scores = [r['score'] for r in ranking if r['score'] > my_score]
         if higher_scores:
-            # 3位が複数いても、2位や1位を目指すための最短距離を計算
-            status["diff_up"] = min(higher_scores) - my_score + 1
-        
+            res["diff_up"] = min(higher_scores) - my_score + 1
+            
         lower_scores = [r['score'] for r in ranking if r['score'] < my_score]
         if lower_scores:
-            status["diff_down"] = my_score - max(lower_scores)
-                
-        return status
+            res["diff_down"] = my_score - max(lower_scores)
+            
+        return res
     return None
 
-# --- UI ---
+# --- UI部 ---
 st.title("📊 ギフトランキング・ダッシュボード")
 
 with st.sidebar:
-    target_room = st.text_input("Room IDを入力", value="512751")
-    period = st.radio("集計期間", ["日間", "週間", "月間"], horizontal=True)
-    period_map = {"日間": 1, "週間": 2, "月間": 3}
-    start_btn = st.button("状況を更新する", type="primary")
+    room_input = st.text_input("Room IDを入力", value="512751")
+    period_label = st.radio("集計期間", ["日間", "週間", "月間"], horizontal=True)
+    period_val = {"日間": 1, "週間": 2, "月間": 3}[period_label]
+    update_btn = st.button("状況を更新する", type="primary")
 
-if start_btn and target_room:
-    today = datetime.now().strftime('%Y%m%d')
-    with st.spinner('ギフトリストを取得中...'):
-        gift_list = get_all_gift_ids()
+if update_btn and room_input:
+    ymd = datetime.now().strftime('%Y%m%d')
     
-    if gift_list:
-        my_results = []
-        progress_bar = st.progress(0)
+    with st.spinner('全ギフトをスキャン中...'):
+        master_list = get_all_gift_ids()
+    
+    if master_list:
+        results = []
+        p_bar = st.progress(0)
         
         with ThreadPoolExecutor(max_workers=10) as executor:
-            # 各ギフトIDについて、個別APIから情報を抽出
-            futures = {
-                executor.submit(process_gift, g['gift_id'], target_room, period_map[period], today, i): i 
-                for i, g in enumerate(gift_list)
+            tasks = {
+                executor.submit(process_gift, g['gift_id'], room_input, period_val, ymd, i): i 
+                for i, g in enumerate(master_list)
             }
-            for i, future in enumerate(as_completed(futures)):
-                res = future.result()
-                if res: my_results.append(res)
-                progress_bar.progress((i + 1) / len(gift_list))
+            for i, future in enumerate(as_completed(tasks)):
+                data = future.result()
+                if data:
+                    results.append(data)
+                p_bar.progress((i + 1) / len(master_list))
         
-        progress_bar.empty()
+        p_bar.empty()
 
-        if my_results:
-            my_results = sorted(my_results, key=lambda x: x['original_index'])
-            for item in my_results:
+        if results:
+            # 公式の並び順（order）でソートして表示
+            results.sort(key=lambda x: x['order'])
+            
+            for item in results:
                 with st.container():
-                    col1, col2, col3 = st.columns([1, 4, 2])
-                    with col1:
-                        st.image(item['icon'], width=80)
-                    with col2:
-                        # H3ヘッダーでギフト名をそのまま表示
-                        st.subheader(item['name'])
+                    c1, c2, c3 = st.columns([1, 4, 2])
+                    with c1:
+                        st.image(item['img'], width=80)
+                    with c2:
+                        # APIの値をそのまま流し込み
+                        st.subheader(item['display_name'])
                         st.write(f"現在の個数: **{item['score']:,} 個**")
-                    with col3:
+                    with c3:
                         st.metric("現在の順位", f"{item['rank']}位")
                         
                         if item['diff_up'] is not None:
@@ -127,4 +129,4 @@ if start_btn and target_room:
                             st.write(f"🔽 **下の順位**まであと **{item['diff_down']:,}** 個")
                     st.divider()
         else:
-            st.warning("100位以内にランクインしているギフトが見つかりませんでした。")
+            st.warning("ランクイン情報が見つかりませんでした。")
