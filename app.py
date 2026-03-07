@@ -153,7 +153,7 @@ if run and room_id_input:
                 st.subheader("📈 ランクイン状況一覧")
                 df = pd.DataFrame(results)
                 summary_df = df[["rank", "name", "score", "up", "down"]].copy()
-                summary_df.columns = ["順位", "ギフト名", "獲得数", "次まで", "下との差"]
+                summary_df.columns = ["順位", "ギフト名", "獲得数", "上の順位まで", "下の順位まで"]
                 st.dataframe(summary_df, use_container_width=True, hide_index=True)
                 
                 st.divider()
