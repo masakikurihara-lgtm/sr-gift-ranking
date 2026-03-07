@@ -49,7 +49,6 @@ def get_gift_status(g_id, room_id, period, ymd, order):
     if me:
         score = me['score']
         rank = me['rank']
-        # --- 修正: ルーム名を取得 ---
         room_name = me['room'].get('room_name', 'Unknown')
         
         higher = [r['score'] for r in ranking if r['score'] > score]
@@ -66,7 +65,7 @@ def get_gift_status(g_id, room_id, period, ymd, order):
             "score": score,
             "up": diff_up,
             "down": diff_down,
-            "room_name": room_name # ルーム名を保持
+            "room_name": room_name
         }
     return None
 
@@ -115,12 +114,13 @@ if run and room_id:
         if results:
             results.sort(key=lambda x: x['order'])
 
-            # --- 追加: ルーム情報のラベル表示 ---
-            display_name = results[0]['room_name'] # 取得したデータからルーム名を拝借
+            # --- 修正: ルーム名(ID)のみをリンクにし、ルーム名を太字に設定 ---
+            display_name = results[0]['room_name']
             profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id}"
             
-            st.info(f"🔗 [{display_name} ({room_id}) のギフトランキング状況]({profile_url})")
-            # ------------------------------------
+            # st.info内でのMarkdown表現
+            st.info(f"🔗 [**{display_name}** ({room_id})]({profile_url}) のギフトランキング状況")
+            # ---------------------------------------------------------
 
             st.subheader("📈 ランクイン状況一覧")
             df = pd.DataFrame(results)
