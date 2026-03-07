@@ -49,6 +49,8 @@ def get_gift_status(g_id, room_id, period, ymd, order):
     if me:
         score = me['score']
         rank = me['rank']
+        # --- 修正: ルーム名を取得 ---
+        room_name = me['room'].get('room_name', 'Unknown')
         
         higher = [r['score'] for r in ranking if r['score'] > score]
         diff_up = (min(higher) - score + 1) if higher else None
@@ -63,7 +65,8 @@ def get_gift_status(g_id, room_id, period, ymd, order):
             "rank": rank,
             "score": score,
             "up": diff_up,
-            "down": diff_down
+            "down": diff_down,
+            "room_name": room_name # ルーム名を保持
         }
     return None
 
@@ -112,20 +115,22 @@ if run and room_id:
         if results:
             results.sort(key=lambda x: x['order'])
 
-            # --- 追加: 一覧データフレームの表示 ---
+            # --- 追加: ルーム情報のラベル表示 ---
+            display_name = results[0]['room_name'] # 取得したデータからルーム名を拝借
+            profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id}"
+            
+            st.info(f"🔗 [{display_name} ({room_id}) のギフトランキング状況]({profile_url})")
+            # ------------------------------------
+
             st.subheader("📈 ランクイン状況一覧")
             df = pd.DataFrame(results)
-            # 表示用にカラムを整理
             summary_df = df[["rank", "name", "score", "up", "down"]].copy()
             summary_df.columns = ["順位", "ギフト名", "獲得数", "次まで", "下との差"]
             
-            # インデックスを隠して表示
             st.dataframe(summary_df, use_container_width=True, hide_index=True)
             
             st.divider()
-            # ------------------------------------
             
-            # 従来通りの詳細表示
             for item in results:
                 with st.container():
                     col1, col2, col3 = st.columns([1, 4, 2])
