@@ -92,7 +92,7 @@ with st.sidebar:
     auth_key = st.text_input("認証キー", type="password")
     period_txt = st.radio("期間", ["日間", "週間", "月間"], horizontal=True)
     period_map = {"日間": 1, "週間": 2, "月間": 3}
-    run = st.button("状況を更新する", type="primary")
+    run = st.button("確認する", type="primary")
 
 if run and room_id_input:
     is_authorized = False
