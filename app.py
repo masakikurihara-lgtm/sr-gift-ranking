@@ -87,7 +87,7 @@ st.markdown(
 )
 
 with st.sidebar:
-    room_id_input = st.text_input("Room ID", value="512751")
+    room_id_input = st.text_input("Room ID", value="")
     auth_key = st.text_input("認証キー", type="password")
     
     col_p, col_t = st.columns(2)
