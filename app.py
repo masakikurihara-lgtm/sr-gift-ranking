@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ページ設定
-st.set_page_config(page_title="SHOWROOMギフトランキング", layout="wide")
+st.set_page_config(page_title="SHOWROOM ギフトランキング・ダッシュボード", layout="wide")
 
 ROOM_LIST_URL = "https://mksoul-pro.com/showroom/file/room_list.csv"
 
@@ -80,7 +80,12 @@ def get_gift_status(g_id, room_id, period, ymd, order):
     return None
 
 # --- メイン UI ---
-st.title("📊 ギフトランキング・ダッシュボード")
+# st.title("📊 ギフトランキング・ダッシュボード")
+
+st.markdown(
+    "<h1 style='font-size:28px; text-align:left; color:#1f2937;'>🎤 SHOWROOM ギフトランキング・ダッシュボード</h1>",
+    unsafe_allow_html=True
+)
 
 with st.sidebar:
     room_id_input = st.text_input("Room ID", value="512751")
@@ -150,7 +155,8 @@ if run and room_id_input:
                 fetched_at = now.strftime('%Y/%m/%d %H:%M:%S')
                 st.caption(f"（取得時刻: {fetched_at} 現在）")
 
-                st.subheader("📈 ランクイン状況一覧")
+                # st.subheader("📈 ランクイン状況一覧")
+                st.markdown("#### 📈 ランクイン状況一覧")
                 df = pd.DataFrame(results)
                 summary_df = df[["rank", "name", "score", "up", "down"]].copy()
                 summary_df.columns = ["順位", "ギフト名", "獲得数", "上の順位まで", "下の順位まで"]
