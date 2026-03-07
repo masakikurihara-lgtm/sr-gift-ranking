@@ -156,7 +156,7 @@ if run and room_id_input:
                 st.caption(f"（取得時刻: {fetched_at} 現在）")
 
                 # st.subheader("📈 ランクイン状況一覧")
-                st.markdown("#### 📈 ランクイン状況一覧")
+                st.markdown("##### 📈 ランクイン状況一覧")
                 df = pd.DataFrame(results)
                 summary_df = df[["rank", "name", "score", "up", "down"]].copy()
                 summary_df.columns = ["順位", "ギフト名", "獲得数", "上の順位まで", "下の順位まで"]
