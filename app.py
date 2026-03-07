@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import pandas as pd
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -8,7 +9,6 @@ st.set_page_config(page_title="SHOWROOMギフトランキング", layout="wide")
 
 def fetch_json(url, params=None):
     try:
-        # 日本語のレスポンスを強制するため、言語設定ヘッダーを追加
         headers = {"Accept-Language": "ja"}
         res = requests.get(url, params=params, headers=headers, timeout=10)
         res.raise_for_status()
@@ -44,7 +44,6 @@ def get_gift_status(g_id, room_id, period, ymd, order):
     img_url = detail.get('gift_image', '')
     ranking = detail['ranking_list']
     
-    # 自ルームの特定
     me = next((r for r in ranking if r['room']['room_id'] == int(room_id)), None)
     
     if me:
@@ -78,19 +77,17 @@ with st.sidebar:
     run = st.button("状況を更新する", type="primary")
 
 if run and room_id:
-    # --- ymdパラメータの計算ロジック修正 ---
     now = datetime.now()
     p_val = period_map[period_txt]
     
-    if p_val == 1: # 日間
+    if p_val == 1:
         target_ymd = now.strftime('%Y%m%d')
-    elif p_val == 2: # 週間 (今週の月曜日)
+    elif p_val == 2:
         monday = now - timedelta(days=now.weekday())
         target_ymd = monday.strftime('%Y%m%d')
-    elif p_val == 3: # 月間 (今月の1日)
+    elif p_val == 3:
         first_day = now.replace(day=1)
         target_ymd = first_day.strftime('%Y%m%d')
-    # ---------------------------------------
     
     with st.spinner(f'{period_txt}のギフト一覧を取得中...'):
         master = get_gift_master()
@@ -114,7 +111,21 @@ if run and room_id:
 
         if results:
             results.sort(key=lambda x: x['order'])
+
+            # --- 追加: 一覧データフレームの表示 ---
+            st.subheader("📈 ランクイン状況一覧")
+            df = pd.DataFrame(results)
+            # 表示用にカラムを整理
+            summary_df = df[["rank", "name", "score", "up", "down"]].copy()
+            summary_df.columns = ["順位", "ギフト名", "獲得数", "次まで", "下との差"]
             
+            # インデックスを隠して表示
+            st.dataframe(summary_df, use_container_width=True, hide_index=True)
+            
+            st.divider()
+            # ------------------------------------
+            
+            # 従来通りの詳細表示
             for item in results:
                 with st.container():
                     col1, col2, col3 = st.columns([1, 4, 2])
