@@ -7,6 +7,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # ページ設定
 st.set_page_config(page_title="SHOWROOMギフトランキング", layout="wide")
 
+ROOM_LIST_URL = "https://mksoul-pro.com/showroom/file/room_list.csv"
+
 def fetch_json(url, params=None):
     try:
         headers = {"Accept-Language": "ja"}
@@ -15,6 +17,15 @@ def fetch_json(url, params=None):
         return res.json()
     except:
         return None
+
+def get_allowed_rooms():
+    """CSVから許可されたルームIDリストを取得"""
+    try:
+        df_rooms = pd.read_csv(ROOM_LIST_URL)
+        # 1列目の値を文字列のリストとして返す
+        return df_rooms.iloc[:, 0].astype(str).tolist()
+    except:
+        return []
 
 def get_gift_master():
     """全ギフトのIDを収集"""
@@ -73,82 +84,97 @@ def get_gift_status(g_id, room_id, period, ymd, order):
 st.title("📊 ギフトランキング・ダッシュボード")
 
 with st.sidebar:
-    room_id = st.text_input("Room ID", value="512751")
+    room_id_input = st.text_input("Room ID", value="512751")
+    # バイパス用パスワード入力
+    auth_key = st.text_input("認証キー", type="password")
     period_txt = st.radio("期間", ["日間", "週間", "月間"], horizontal=True)
     period_map = {"日間": 1, "週間": 2, "月間": 3}
     run = st.button("状況を更新する", type="primary")
 
-if run and room_id:
-    now = datetime.now()
-    p_val = period_map[period_txt]
+if run and room_id_input:
+    # --- 認証チェックロジック ---
+    is_authorized = False
     
-    if p_val == 1:
-        target_ymd = now.strftime('%Y%m%d')
-    elif p_val == 2:
-        monday = now - timedelta(days=now.weekday())
-        target_ymd = monday.strftime('%Y%m%d')
-    elif p_val == 3:
-        first_day = now.replace(day=1)
-        target_ymd = first_day.strftime('%Y%m%d')
-    
-    with st.spinner(f'{period_txt}のギフト一覧を取得中...'):
-        master = get_gift_master()
-    
-    if master:
-        results = []
-        bar = st.progress(0)
+    # パスワードが一致するか確認
+    if auth_key == "mksp":
+        is_authorized = True
+    else:
+        # CSVのリストに含まれているか確認
+        allowed_rooms = get_allowed_rooms()
+        if room_id_input in allowed_rooms:
+            is_authorized = True
+
+    if not is_authorized:
+        st.error("認証されていないルームIDです。")
+    else:
+        # 認証成功後の処理
+        now = datetime.now()
+        p_val = period_map[period_txt]
         
-        with ThreadPoolExecutor(max_workers=10) as exe:
-            futures = {
-                exe.submit(get_gift_status, g['gift_id'], room_id, p_val, target_ymd, i): i 
-                for i, g in enumerate(master)
-            }
-            for i, f in enumerate(as_completed(futures)):
-                res = f.result()
-                if res:
-                    results.append(res)
-                bar.progress((i + 1) / len(master))
+        if p_val == 1:
+            target_ymd = now.strftime('%Y%m%d')
+        elif p_val == 2:
+            monday = now - timedelta(days=now.weekday())
+            target_ymd = monday.strftime('%Y%m%d')
+        elif p_val == 3:
+            first_day = now.replace(day=1)
+            target_ymd = first_day.strftime('%Y%m%d')
         
-        bar.empty()
+        with st.spinner(f'{period_txt}のギフト一覧を取得中...'):
+            master = get_gift_master()
+        
+        if master:
+            results = []
+            bar = st.progress(0)
+            
+            with ThreadPoolExecutor(max_workers=10) as exe:
+                futures = {
+                    exe.submit(get_gift_status, g['gift_id'], room_id_input, p_val, target_ymd, i): i 
+                    for i, g in enumerate(master)
+                }
+                for i, f in enumerate(as_completed(futures)):
+                    res = f.result()
+                    if res:
+                        results.append(res)
+                    bar.progress((i + 1) / len(master))
+            
+            bar.empty()
 
-        if results:
-            results.sort(key=lambda x: x['order'])
+            if results:
+                results.sort(key=lambda x: x['order'])
 
-            # --- 修正: ルーム名(ID)のみをリンクにし、ルーム名を太字に設定 ---
-            display_name = results[0]['room_name']
-            profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id}"
-            
-            # st.info内でのMarkdown表現
-            st.info(f"🔗 [**{display_name}** ({room_id})]({profile_url}) のギフトランキング状況")
-            # ---------------------------------------------------------
+                display_name = results[0]['room_name']
+                profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id_input}"
+                
+                st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) のギフトランキング状況")
 
-            st.subheader("📈 ランクイン状況一覧")
-            df = pd.DataFrame(results)
-            summary_df = df[["rank", "name", "score", "up", "down"]].copy()
-            summary_df.columns = ["順位", "ギフト名", "獲得数", "次まで", "下との差"]
-            
-            st.dataframe(summary_df, use_container_width=True, hide_index=True)
-            
-            st.divider()
-            
-            for item in results:
-                with st.container():
-                    col1, col2, col3 = st.columns([1, 4, 2])
-                    with col1:
-                        st.image(item['img'], width=80)
-                    with col2:
-                        st.subheader(item['name'])
-                        st.write(f"現在の個数: **{item['score']:,} 個**")
-                    with col3:
-                        st.metric("現在の順位", f"{item['rank']}位")
-                        
-                        if item['up'] is not None:
-                            st.write(f"🔼 **上の順位**まであと **{item['up']:,}** 個")
-                        elif item['rank'] == 1:
-                            st.write("🏆 **現在1位です！**")
-                        
-                        if item['down'] is not None:
-                            st.write(f"🔽 **下の順位**まであと **{item['down']:,}** 個")
-                    st.divider()
-        else:
-            st.warning(f"{period_txt}ランキングで100位以内に入っているギフトがありません。")
+                st.subheader("📈 ランクイン状況一覧")
+                df = pd.DataFrame(results)
+                summary_df = df[["rank", "name", "score", "up", "down"]].copy()
+                summary_df.columns = ["順位", "ギフト名", "獲得数", "次まで", "下との差"]
+                
+                st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                
+                st.divider()
+                
+                for item in results:
+                    with st.container():
+                        col1, col2, col3 = st.columns([1, 4, 2])
+                        with col1:
+                            st.image(item['img'], width=80)
+                        with col2:
+                            st.subheader(item['name'])
+                            st.write(f"現在の個数: **{item['score']:,} 個**")
+                        with col3:
+                            st.metric("現在の順位", f"{item['rank']}位")
+                            
+                            if item['up'] is not None:
+                                st.write(f"🔼 **上の順位**まであと **{item['up']:,}** 個")
+                            elif item['rank'] == 1:
+                                st.write("🏆 **現在1位です！**")
+                            
+                            if item['down'] is not None:
+                                st.write(f"🔽 **下の順位**まであと **{item['down']:,}** 個")
+                        st.divider()
+            else:
+                st.warning(f"{period_txt}ランキングで100位以内に入っているギフトがありません。")
