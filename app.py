@@ -47,12 +47,19 @@ def get_room_gift_points(room_id):
     url = f"https://www.showroom-live.com/api/live/gift_list?room_id={room_id}"
     data = fetch_json(url)
     points_map = {}
+    
+    # JSON構造の点検と修正
+    # data["gift_list"] は辞書形式で、その値（リスト）の中にギフト情報が入っている
     if data and "gift_list" in data:
-        for category in data["gift_list"]:
-            for gift in category.get("list", []):
-                g_id = gift.get("gift_id")
-                pt = gift.get("point", 0)
-                points_map[g_id] = pt
+        gift_categories = data["gift_list"]
+        for category_key in gift_categories:
+            category_items = gift_categories[category_key]
+            if isinstance(category_items, list):
+                for gift in category_items:
+                    g_id = gift.get("gift_id")
+                    pt = gift.get("point", 0)
+                    if g_id:
+                        points_map[g_id] = pt
     return points_map
 
 def get_gift_status(g_id, room_id, period, ymd, order, points_map):
@@ -75,7 +82,7 @@ def get_gift_status(g_id, room_id, period, ymd, order, points_map):
         rank = me['rank']
         room_name = me['room'].get('room_name', 'Unknown')
         
-        # ギフト単体ポイントを取得（取得できない場合は 0 または '-'）
+        # 修正: ポイント取得ロジック
         unit_point = points_map.get(g_id, 0)
         
         higher = [r['score'] for r in ranking if r['score'] > score]
@@ -87,7 +94,7 @@ def get_gift_status(g_id, room_id, period, ymd, order, points_map):
         return {
             "order": order,
             "name": raw_name,
-            "point": unit_point, # 追加項目
+            "point": unit_point,
             "img": img_url,
             "rank": rank,
             "score": score,
@@ -128,32 +135,28 @@ if run and room_id_input:
     if not is_authorized:
         st.error("認証されていないルームIDです。")
     else:
-        # 日本時間の取得（JST: UTC+9）
         jst = timezone(timedelta(hours=9))
         now = datetime.now(jst)
-        
         p_val = period_map[period_txt]
         
-        # --- 日付計算ロジック ---
         if target_txt == "今回":
             calc_base = now
         else:
-            if p_val == 1: # 日間
+            if p_val == 1:
                 calc_base = now - timedelta(days=1)
-            elif p_val == 2: # 週間
+            elif p_val == 2:
                 calc_base = now - timedelta(days=7)
-            else: # 月間
+            else:
                 calc_base = now - relativedelta(months=1)
 
-        # 期間に応じたAPI用日付と表示用ラベルの生成
-        if p_val == 1: # 日間
+        if p_val == 1:
             target_ymd = calc_base.strftime('%Y%m%d')
             display_date = calc_base.strftime('%Y/%m/%d')
-        elif p_val == 2: # 週間
+        elif p_val == 2:
             monday = calc_base - timedelta(days=calc_base.weekday())
             target_ymd = monday.strftime('%Y%m%d')
             display_date = f"{monday.strftime('%Y/%m/%d')}の週"
-        else: # 月間
+        else:
             first_day = calc_base.replace(day=1)
             target_ymd = first_day.strftime('%Y%m%d')
             display_date = first_day.strftime('%Y/%m')
@@ -162,7 +165,7 @@ if run and room_id_input:
 
         with st.spinner(f'{target_label}のデータを確認中...'):
             master = get_gift_master()
-            points_map = get_room_gift_points(room_id_input) # ポイント辞書を取得
+            points_map = get_room_gift_points(room_id_input)
         
         if master:
             results = []
@@ -196,7 +199,6 @@ if run and room_id_input:
 
                 st.markdown("##### 📈 ランクイン状況一覧")
                 df = pd.DataFrame(results)
-                # 一覧表に「ポイント」を追加
                 summary_df = df[["rank", "name", "point", "score", "up", "down"]].copy()
                 summary_df.columns = ["順位", "ギフト名", "ポイント", "獲得数", "上の順位まで", "下の順位まで"]
                 st.dataframe(summary_df, use_container_width=True, hide_index=True)
@@ -210,8 +212,8 @@ if run and room_id_input:
                             st.image(item['img'], width=80)
                         with col2:
                             st.subheader(item['name'])
-                            # ビジュアル表示部分にポイント情報を追加
-                            st.write(f"ポイント: **{item['point']:,} pt** ｜ 期間内の獲得数: **{item['score']:,} 個**")
+                            # 修正: 単位 pt を削除
+                            st.write(f"ポイント: **{item['point']:,}** ｜ 期間内の獲得数: **{item['score']:,} 個**")
                         with col3:
                             st.metric("順位", f"{item['rank']}位")
                             if item['up'] is not None:
