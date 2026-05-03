@@ -49,17 +49,17 @@ def get_room_gift_points(room_id):
     points_map = {}
     
     if data and "gift_list" in data:
-        gift_categories = data["gift_list"]
-        # gift_list内の各カテゴリ(enquete, normal, seasonal等)をループ
-        for cat_name in gift_categories:
-            items = gift_categories[cat_name]
-            # 各カテゴリの中身はギフト情報のリスト
-            if isinstance(items, list):
-                for gift in items:
+        gl = data["gift_list"]
+        # カテゴリ（辞書の値）を順に走査
+        categories = gl.values() if isinstance(gl, dict) else gl
+        for category in categories:
+            # カテゴリ自体がリストである場合を想定（ご提示のURL構造）
+            if isinstance(category, list):
+                for gift in category:
                     g_id = gift.get("gift_id")
-                    pt = gift.get("point", 0)
                     if g_id is not None:
-                        points_map[g_id] = pt
+                        # 型の不一致を防ぐため文字列に統一
+                        points_map[str(g_id)] = gift.get("point", 0)
     return points_map
 
 def get_gift_status(g_id, room_id, period, ymd, order, points_map):
@@ -82,8 +82,8 @@ def get_gift_status(g_id, room_id, period, ymd, order, points_map):
         rank = me['rank']
         room_name = me['room'].get('room_name', 'Unknown')
         
-        # 取得したポイントマップから該当ギフトのポイントを引く
-        unit_point = points_map.get(g_id, 0)
+        # マッチング時に文字列型を使用
+        unit_point = points_map.get(str(g_id), 0)
         
         higher = [r['score'] for r in ranking if r['score'] > score]
         diff_up = (min(higher) - score + 1) if higher else None
@@ -139,6 +139,7 @@ if run and room_id_input:
         now = datetime.now(jst)
         p_val = period_map[period_txt]
         
+        # 期間に応じたAPI用日付と表示用ラベルの生成
         if target_txt == "今回":
             calc_base = now
         else:
