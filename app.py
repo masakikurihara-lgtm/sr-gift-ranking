@@ -20,7 +20,6 @@ def fetch_json(url, params=None):
         return None
 
 def get_allowed_rooms():
-    """CSVから許可されたルームIDリストを取得"""
     try:
         df_rooms = pd.read_csv(ROOM_LIST_URL)
         return df_rooms.iloc[:, 0].astype(str).tolist()
@@ -28,7 +27,6 @@ def get_allowed_rooms():
         return []
 
 def get_gift_master():
-    """全ギフトのIDを収集"""
     all_gifts = []
     page = 1
     while True:
@@ -44,28 +42,25 @@ def get_gift_master():
 
 def get_room_gift_points(room_id):
     """
-    https://www.showroom-live.com/api/live/gift_list?room_id={room_id}
-    からギフトIDごとのポイントを抽出
+    提供されたJSON構造に基づきポイントを取得
+    構造: { "category_name": [ { "gift_id": 10001, "point": 0, ... }, ... ] }
     """
     url = f"https://www.showroom-live.com/api/live/gift_list?room_id={room_id}"
     data = fetch_json(url)
     points_map = {}
     
-    if data and "gift_list" in data:
-        # gift_list内の全カテゴリ（enquete, normal, seasonal, event等）をフラットに走査
-        for category_key in data["gift_list"]:
-            gift_items = data["gift_list"][category_key]
-            if isinstance(gift_items, list):
-                for gift in gift_items:
-                    # IDとPointを取得（IDは念のため文字列と数値の両方に対応できるようキャストを外して保持）
+    if data:
+        # ルート直下の各カテゴリ(enquete等)のリストを走査
+        for category_list in data.values():
+            if isinstance(category_list, list):
+                for gift in category_list:
                     g_id = gift.get("gift_id")
-                    pt = gift.get("point", 0)
-                    if g_id is not None:
-                        points_map[int(g_id)] = pt
+                    pt = gift.get("point")
+                    if g_id is not None and pt is not None:
+                        points_map[g_id] = pt
     return points_map
 
 def get_gift_status(g_id, room_id, period, ymd, order, points_map):
-    """個別APIからギフト情報を取得"""
     url = f"https://www.showroom-live.com/api/regular_gift_ranking/{g_id}"
     params = {'ymd': ymd, 'period': period, 'page': 1, 'count': 100}
     detail = fetch_json(url, params)
@@ -77,7 +72,6 @@ def get_gift_status(g_id, room_id, period, ymd, order, points_map):
     img_url = detail.get('gift_image', '')
     ranking = detail['ranking_list']
     
-    # 自分のルームを探す
     me = next((r for r in ranking if r['room']['room_id'] == int(room_id)), None)
     
     if me:
@@ -85,8 +79,8 @@ def get_gift_status(g_id, room_id, period, ymd, order, points_map):
         rank = me['rank']
         room_name = me['room'].get('room_name', 'Unknown')
         
-        # ポイント辞書から取得（IDをintで紐付け）
-        unit_point = points_map.get(int(g_id), 0)
+        # 取得したポイントを紐付け
+        unit_point = points_map.get(g_id, 0)
         
         higher = [r['score'] for r in ranking if r['score'] > score]
         diff_up = (min(higher) - score + 1) if higher else None
@@ -127,6 +121,7 @@ with st.sidebar:
     run = st.button("確認する", type="primary")
 
 if run and room_id_input:
+    # 認証ロジック
     is_authorized = False
     if auth_key == "mksp":
         is_authorized = True
@@ -168,7 +163,6 @@ if run and room_id_input:
 
         with st.spinner(f'{target_label}のデータを確認中...'):
             master = get_gift_master()
-            # 修正：ギフトIDとポイントの辞書を作成
             points_map = get_room_gift_points(room_id_input)
         
         if master:
@@ -190,14 +184,9 @@ if run and room_id_input:
 
             if results:
                 results.sort(key=lambda x: x['order'])
-
                 display_name = results[0]['room_name']
                 profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id_input}"
-                
                 st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) の{target_label}状況")
-
-                fetched_at = now.strftime('%Y/%m/%d %H:%M:%S')
-                st.caption(f"（取得時刻: {fetched_at} 現在 / 対象日: {display_date}）")
 
                 st.markdown("##### 📈 ランクイン状況一覧")
                 df = pd.DataFrame(results)
@@ -214,16 +203,15 @@ if run and room_id_input:
                             st.image(item['img'], width=80)
                         with col2:
                             st.subheader(item['name'])
-                            # ポイント表示
-                            st.write(f"ポイント: **{item['point']:,}** ｜ 期間内の獲得数: **{item['score']:,} 個**")
+                            st.write(f"ポイント: **{item['point']:,}** ｜ 獲得数: **{item['score']:,} 個**")
                         with col3:
                             st.metric("順位", f"{item['rank']}位")
                             if item['up'] is not None:
-                                st.write(f"🔼 **上の順位**まであと **{item['up']:,}** 個")
+                                st.write(f"🔼 あと **{item['up']:,}** 個")
                             elif item['rank'] == 1:
-                                st.write("🏆 **現在1位です！**")
+                                st.write("🏆 **現在1位**")
                             if item['down'] is not None:
-                                st.write(f"🔽 **下の順位**まであと **{item['down']:,}** 個")
+                                st.write(f"🔽 あと **{item['down']:,}** 個")
                         st.divider()
             else:
                 st.warning(f"{target_label}で100位以内に入っているギフトがありません。")
