@@ -240,7 +240,7 @@ if run and room_id_input:
                         with c1: st.image(item['img'], width=70)
                         with c2:
                             st.markdown(f"**{item['name']}**")
-                            st.caption(f"ポイント単価: {item['point']} ｜ ランクイン: {item['total_ranked']}ルーム")
+                            st.caption(f"ポイント単価: {item['point']} ｜ ランクイン数: {item['total_ranked']}ルーム")
                             # st.write(f"ポイント単価: **{item['point']:,}** ｜ 獲得数: **{item['score']:,} 個**")
                             if item['total_ranked'] == 0:
                                 st.write("🎁 現在、獲得しているルームはありません。")
