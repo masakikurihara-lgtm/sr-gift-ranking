@@ -112,7 +112,7 @@ st.markdown(
 )
 
 with st.sidebar:
-    mode = st.radio("表示モード", ["ルーム分析", "1位狙い（穴場発掘）"], index=0)
+    mode = st.radio("表示モード", ["ルーム分析", "穴場ギフト発掘"], index=0)
     st.divider()
     
     room_id_input = st.text_input("Room ID", value="354607")
@@ -195,7 +195,7 @@ if run and room_id_input:
                     st.warning(f"{target_label}で100位以内に入っているギフトがありません。")
 
         else:
-            # 穴場発掘モード
+            # 穴場ギフト発掘モード
             with st.spinner('全ギフトのコスト計算中...'):
                 anaba_results = []
                 bar = st.progress(0)
