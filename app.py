@@ -175,7 +175,7 @@ if run and room_id_input:
                     st.markdown("##### 📈 ランクイン状況一覧")
                     df = pd.DataFrame(results)
                     summary_df = df[["rank", "name", "point", "score", "up", "down"]].copy()
-                    summary_df.columns = ["順位", "ギフト名", "ポイント", "獲得数", "上の順位まで", "下の順位まで"]
+                    summary_df.columns = ["順位", "ギフト名", "ポイント単価", "獲得数", "上の順位まで", "下の順位まで"]
                     st.dataframe(summary_df, use_container_width=True, hide_index=True)
                     st.divider()
                     for item in results:
@@ -184,7 +184,7 @@ if run and room_id_input:
                             with col1: st.image(item['img'], width=80)
                             with col2:
                                 st.subheader(item['name'])
-                                st.write(f"ポイント: **{item['point']:,}** ｜ 獲得数: **{item['score']:,} 個**")
+                                st.write(f"ポイント単価: **{item['point']:,}** ｜ 獲得数: **{item['score']:,} 個**")
                             with col3:
                                 st.metric("順位", f"{item['rank']}位")
                                 if item['up'] is not None: st.write(f"🔼 あと **{item['up']:,}** 個")
@@ -210,7 +210,7 @@ if run and room_id_input:
             if anaba_results:
                 anaba_results.sort(key=lambda x: x['cost'])
                 
-                st.success(f"✅ {target_label} の穴場ランキング（1位奪取コストの低い順）")
+                st.success(f"✅ {target_label} の穴場ギフトランキング（1位奪取コストの低い順）")
                 
                 st.markdown("##### 📈 穴場ギフトランキング")
                 
@@ -227,7 +227,7 @@ if run and room_id_input:
                 ana_df['注目度'] = ana_df['total_ranked'].apply(get_room_label)
                 
                 disp_df = ana_df[['注目度', 'name', 'point', 'top_score', 'cost']].copy()
-                disp_df.columns = ["ランクイン数", "ギフト名", "ポイント", "1位の獲得数", "1位奪取必要pt"]
+                disp_df.columns = ["ランクイン数", "ギフト名", "ポイント単価", "1位の獲得数", "1位奪取必要pt"]
                 st.dataframe(disp_df, use_container_width=True, hide_index=True)
                 
                 st.divider()
@@ -240,8 +240,8 @@ if run and room_id_input:
                         with c1: st.image(item['img'], width=70)
                         with c2:
                             st.markdown(f"**{item['name']}**")
-                            st.caption(f"ポイント: {item['point']} ｜ ランクイン: {item['total_ranked']}ルーム")
-                            # st.write(f"ポイント: **{item['point']:,}** ｜ 獲得数: **{item['score']:,} 個**")
+                            st.caption(f"ポイント単価: {item['point']} ｜ ランクイン: {item['total_ranked']}ルーム")
+                            # st.write(f"ポイント単価: **{item['point']:,}** ｜ 獲得数: **{item['score']:,} 個**")
                             if item['total_ranked'] == 0:
                                 st.write("🎁 現在、獲得しているルームはありません。")
                         with c3:
