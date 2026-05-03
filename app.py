@@ -42,7 +42,20 @@ def get_gift_master():
         page = data['next_page']
     return all_gifts
 
-def get_gift_status(g_id, room_id, period, ymd, order):
+def get_room_gift_points(room_id):
+    """ルームごとの各ギフト単体ポイントを取得し辞書を返す"""
+    url = f"https://www.showroom-live.com/api/live/gift_list?room_id={room_id}"
+    data = fetch_json(url)
+    points_map = {}
+    if data and "gift_list" in data:
+        for category in data["gift_list"]:
+            for gift in category.get("list", []):
+                g_id = gift.get("gift_id")
+                pt = gift.get("point", 0)
+                points_map[g_id] = pt
+    return points_map
+
+def get_gift_status(g_id, room_id, period, ymd, order, points_map):
     """個別APIからギフト情報を取得"""
     url = f"https://www.showroom-live.com/api/regular_gift_ranking/{g_id}"
     params = {'ymd': ymd, 'period': period, 'page': 1, 'count': 100}
@@ -62,6 +75,9 @@ def get_gift_status(g_id, room_id, period, ymd, order):
         rank = me['rank']
         room_name = me['room'].get('room_name', 'Unknown')
         
+        # ギフト単体ポイントを取得（取得できない場合は 0 または '-'）
+        unit_point = points_map.get(g_id, 0)
+        
         higher = [r['score'] for r in ranking if r['score'] > score]
         diff_up = (min(higher) - score + 1) if higher else None
         
@@ -71,6 +87,7 @@ def get_gift_status(g_id, room_id, period, ymd, order):
         return {
             "order": order,
             "name": raw_name,
+            "point": unit_point, # 追加項目
             "img": img_url,
             "rank": rank,
             "score": score,
@@ -143,8 +160,9 @@ if run and room_id_input:
         
         target_label = f"{period_txt}（{target_txt}）"
 
-        with st.spinner(f'{target_label}のギフト一覧を取得中...'):
+        with st.spinner(f'{target_label}のデータを確認中...'):
             master = get_gift_master()
+            points_map = get_room_gift_points(room_id_input) # ポイント辞書を取得
         
         if master:
             results = []
@@ -152,7 +170,7 @@ if run and room_id_input:
             
             with ThreadPoolExecutor(max_workers=10) as exe:
                 futures = {
-                    exe.submit(get_gift_status, g['gift_id'], room_id_input, p_val, target_ymd, i): i 
+                    exe.submit(get_gift_status, g['gift_id'], room_id_input, p_val, target_ymd, i, points_map): i 
                     for i, g in enumerate(master)
                 }
                 for i, f in enumerate(as_completed(futures)):
@@ -174,13 +192,13 @@ if run and room_id_input:
                 st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) の{target_label}状況")
 
                 fetched_at = now.strftime('%Y/%m/%d %H:%M:%S')
-                # 修正ポイント: 取得時刻と対象日の表記を整理
                 st.caption(f"（取得時刻: {fetched_at} 現在 / 対象日: {display_date}）")
 
                 st.markdown("##### 📈 ランクイン状況一覧")
                 df = pd.DataFrame(results)
-                summary_df = df[["rank", "name", "score", "up", "down"]].copy()
-                summary_df.columns = ["順位", "ギフト名", "獲得数", "上の順位まで", "下の順位まで"]
+                # 一覧表に「ポイント」を追加
+                summary_df = df[["rank", "name", "point", "score", "up", "down"]].copy()
+                summary_df.columns = ["順位", "ギフト名", "ポイント", "獲得数", "上の順位まで", "下の順位まで"]
                 st.dataframe(summary_df, use_container_width=True, hide_index=True)
                 
                 st.divider()
@@ -192,7 +210,8 @@ if run and room_id_input:
                             st.image(item['img'], width=80)
                         with col2:
                             st.subheader(item['name'])
-                            st.write(f"期間内の獲得数: **{item['score']:,} 個**")
+                            # ビジュアル表示部分にポイント情報を追加
+                            st.write(f"ポイント: **{item['point']:,} pt** ｜ 期間内の獲得数: **{item['score']:,} 個**")
                         with col3:
                             st.metric("順位", f"{item['rank']}位")
                             if item['up'] is not None:
