@@ -48,17 +48,17 @@ def get_room_gift_points(room_id):
     data = fetch_json(url)
     points_map = {}
     
-    # JSON構造の点検と修正
-    # data["gift_list"] は辞書形式で、その値（リスト）の中にギフト情報が入っている
     if data and "gift_list" in data:
         gift_categories = data["gift_list"]
-        for category_key in gift_categories:
-            category_items = gift_categories[category_key]
-            if isinstance(category_items, list):
-                for gift in category_items:
+        # gift_list内の各カテゴリ(enquete, normal, seasonal等)をループ
+        for cat_name in gift_categories:
+            items = gift_categories[cat_name]
+            # 各カテゴリの中身はギフト情報のリスト
+            if isinstance(items, list):
+                for gift in items:
                     g_id = gift.get("gift_id")
                     pt = gift.get("point", 0)
-                    if g_id:
+                    if g_id is not None:
                         points_map[g_id] = pt
     return points_map
 
@@ -82,7 +82,7 @@ def get_gift_status(g_id, room_id, period, ymd, order, points_map):
         rank = me['rank']
         room_name = me['room'].get('room_name', 'Unknown')
         
-        # 修正: ポイント取得ロジック
+        # 取得したポイントマップから該当ギフトのポイントを引く
         unit_point = points_map.get(g_id, 0)
         
         higher = [r['score'] for r in ranking if r['score'] > score]
@@ -187,8 +187,6 @@ if run and room_id_input:
             if results:
                 results.sort(key=lambda x: x['order'])
 
-                st.markdown("▶ [ギフトランキングページへ](https://www.showroom-live.com/gift_ranking)")
-
                 display_name = results[0]['room_name']
                 profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id_input}"
                 
@@ -212,7 +210,6 @@ if run and room_id_input:
                             st.image(item['img'], width=80)
                         with col2:
                             st.subheader(item['name'])
-                            # 修正: 単位 pt を削除
                             st.write(f"ポイント: **{item['point']:,}** ｜ 期間内の獲得数: **{item['score']:,} 個**")
                         with col3:
                             st.metric("順位", f"{item['rank']}位")
