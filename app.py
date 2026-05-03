@@ -212,7 +212,7 @@ if run and room_id_input:
                 
                 st.success(f"✅ {target_label} の穴場ギフトランキング（1位奪取コストの低い順）")
                 
-                st.markdown("##### 📈 穴場ギフトランキング")
+                st.markdown("##### 📈 穴場ギフトランキング（一覧）")
                 
                 # サマリーテーブル
                 ana_df = pd.DataFrame(anaba_results)
@@ -231,7 +231,7 @@ if run and room_id_input:
                 st.dataframe(disp_df, use_container_width=True, hide_index=True)
                 
                 st.divider()
-                st.subheader("🏁 穴場ギフトサーチ 全リスト")
+                # st.subheader("🏁 穴場ギフトサーチ 全リスト")
                 
                 # スキャンした全ギフトを表示
                 for item in anaba_results:
