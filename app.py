@@ -192,7 +192,7 @@ if run and room_id_input:
                             st.image(item['img'], width=80)
                         with col2:
                             st.subheader(item['name'])
-                            st.write(f"期間内の個数: **{item['score']:,} 個**")
+                            st.write(f"期間内の獲得数: **{item['score']:,} 個**")
                         with col3:
                             st.metric("順位", f"{item['rank']}位")
                             if item['up'] is not None:
