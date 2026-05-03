@@ -212,6 +212,8 @@ if run and room_id_input:
                 
                 st.success(f"✅ {target_label} の穴場ランキング（1位奪取コストの低い順）")
                 
+                st.markdown("##### 📈 穴場ギフトランキング")
+                
                 # サマリーテーブル
                 ana_df = pd.DataFrame(anaba_results)
                 
@@ -225,11 +227,11 @@ if run and room_id_input:
                 ana_df['注目度'] = ana_df['total_ranked'].apply(get_room_label)
                 
                 disp_df = ana_df[['注目度', 'name', 'point', 'top_score', 'cost']].copy()
-                disp_df.columns = ["ランクイン数", "ギフト名", "単価", "1位の獲得数", "1位奪取pt"]
+                disp_df.columns = ["ランクイン数", "ギフト名", "ポイント", "1位の獲得数", "1位奪取必要pt"]
                 st.dataframe(disp_df, use_container_width=True, hide_index=True)
                 
                 st.divider()
-                st.subheader("🏁 穴場ギフト 全リスト")
+                st.subheader("🏁 穴場ギフトサーチ 全リスト")
                 
                 # スキャンした全ギフトを表示
                 for item in anaba_results:
@@ -238,11 +240,12 @@ if run and room_id_input:
                         with c1: st.image(item['img'], width=70)
                         with c2:
                             st.markdown(f"**{item['name']}**")
-                            st.caption(f"単価: {item['point']}pt / ランクイン: {item['total_ranked']}ルーム")
+                            st.caption(f"ポイント: {item['point']} ｜ ランクイン: {item['total_ranked']}ルーム")
+                            # st.write(f"ポイント: **{item['point']:,}** ｜ 獲得数: **{item['score']:,} 個**")
                             if item['total_ranked'] == 0:
                                 st.write("🎁 現在、獲得しているルームはありません。")
                         with c3:
-                            st.write(f"1位確定コスト: **{item['cost']:,} pt**")
+                            st.write(f"1位奪取必要pt: **{item['cost']:,} pt**")
                             if item['top_score'] > 0:
                                 st.caption(f"（1位が {item['top_score']}個 獲得中）")
                             else:
