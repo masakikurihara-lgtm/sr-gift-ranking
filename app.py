@@ -43,23 +43,25 @@ def get_gift_master():
     return all_gifts
 
 def get_room_gift_points(room_id):
-    """ルームごとの各ギフト単体ポイントを取得し辞書を返す"""
+    """
+    https://www.showroom-live.com/api/live/gift_list?room_id={room_id}
+    からギフトIDごとのポイントを抽出
+    """
     url = f"https://www.showroom-live.com/api/live/gift_list?room_id={room_id}"
     data = fetch_json(url)
     points_map = {}
     
     if data and "gift_list" in data:
-        gl = data["gift_list"]
-        # カテゴリ（辞書の値）を順に走査
-        categories = gl.values() if isinstance(gl, dict) else gl
-        for category in categories:
-            # カテゴリ自体がリストである場合を想定（ご提示のURL構造）
-            if isinstance(category, list):
-                for gift in category:
+        # gift_list内の全カテゴリ（enquete, normal, seasonal, event等）をフラットに走査
+        for category_key in data["gift_list"]:
+            gift_items = data["gift_list"][category_key]
+            if isinstance(gift_items, list):
+                for gift in gift_items:
+                    # IDとPointを取得（IDは念のため文字列と数値の両方に対応できるようキャストを外して保持）
                     g_id = gift.get("gift_id")
+                    pt = gift.get("point", 0)
                     if g_id is not None:
-                        # 型の不一致を防ぐため文字列に統一
-                        points_map[str(g_id)] = gift.get("point", 0)
+                        points_map[int(g_id)] = pt
     return points_map
 
 def get_gift_status(g_id, room_id, period, ymd, order, points_map):
@@ -75,6 +77,7 @@ def get_gift_status(g_id, room_id, period, ymd, order, points_map):
     img_url = detail.get('gift_image', '')
     ranking = detail['ranking_list']
     
+    # 自分のルームを探す
     me = next((r for r in ranking if r['room']['room_id'] == int(room_id)), None)
     
     if me:
@@ -82,8 +85,8 @@ def get_gift_status(g_id, room_id, period, ymd, order, points_map):
         rank = me['rank']
         room_name = me['room'].get('room_name', 'Unknown')
         
-        # マッチング時に文字列型を使用
-        unit_point = points_map.get(str(g_id), 0)
+        # ポイント辞書から取得（IDをintで紐付け）
+        unit_point = points_map.get(int(g_id), 0)
         
         higher = [r['score'] for r in ranking if r['score'] > score]
         diff_up = (min(higher) - score + 1) if higher else None
@@ -139,7 +142,6 @@ if run and room_id_input:
         now = datetime.now(jst)
         p_val = period_map[period_txt]
         
-        # 期間に応じたAPI用日付と表示用ラベルの生成
         if target_txt == "今回":
             calc_base = now
         else:
@@ -166,6 +168,7 @@ if run and room_id_input:
 
         with st.spinner(f'{target_label}のデータを確認中...'):
             master = get_gift_master()
+            # 修正：ギフトIDとポイントの辞書を作成
             points_map = get_room_gift_points(room_id_input)
         
         if master:
@@ -211,6 +214,7 @@ if run and room_id_input:
                             st.image(item['img'], width=80)
                         with col2:
                             st.subheader(item['name'])
+                            # ポイント表示
                             st.write(f"ポイント: **{item['point']:,}** ｜ 期間内の獲得数: **{item['score']:,} 個**")
                         with col3:
                             st.metric("順位", f"{item['rank']}位")
