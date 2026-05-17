@@ -73,16 +73,21 @@ def get_gift_status(g_id, room_id, period, ymd, order, points_map):
         diff_up = (min(higher) - score + 1) if higher else None
         lower = [r['score'] for r in ranking if r['score'] < score]
         diff_down = (score - max(lower)) if lower else None
+        
+        # 1位までの必要個数を算出 (自分が1位の場合は0)
+        top_score = ranking[0]['score'] if ranking else score
+        diff_top = (top_score - score + 1) if rank > 1 else 0
+        
         return {
             "order": order, "name": raw_name, "point": unit_point, "img": img_url,
-            "rank": rank, "score": score, "up": diff_up, "down": diff_down, "room_name": room_name
+            "rank": rank, "score": score, "up": diff_up, "down": diff_down, 
+            "top": diff_top, "room_name": room_name
         }
     return None
 
 def get_anaba_status(g_id, period, ymd, points_map):
     """【穴場分析用】1位のスコアとランクイン総数を取得"""
     url = f"https://www.showroom-live.com/api/regular_gift_ranking/{g_id}"
-    # ランクインルーム数を知るため count:100 で取得
     params = {'ymd': ymd, 'period': period, 'page': 1, 'count': 100}
     detail = fetch_json(url, params)
     if not detail: return None
@@ -92,7 +97,6 @@ def get_anaba_status(g_id, period, ymd, points_map):
     top_score = ranking[0]['score'] if ranking else 0
     total_rooms = len(ranking)
     
-    # 1位になるための最小コスト (現在1位の個数 + 1) * 単価
     cost_to_no1 = (top_score + 1) * unit_point
     
     return {
@@ -150,7 +154,6 @@ if run and room_id_input:
         
         target_label = f"{period_txt}（{target_txt}）"
 
-        # 共通でマスター取得
         with st.spinner('ギフト情報を取得中...'):
             master = get_gift_master()
             points_map = get_room_gift_points(room_id_input)
@@ -173,11 +176,16 @@ if run and room_id_input:
                     profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id_input}"
                     st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) の{target_label}状況")
                     st.markdown("##### 📈 ランクイン状況一覧")
+                    
+                    # データの準備と「1位まで」の表記整形
                     df = pd.DataFrame(results)
-                    summary_df = df[["rank", "name", "point", "score", "up", "down"]].copy()
-                    summary_df.columns = ["順位", "ギフト名", "ポイント単価", "獲得数", "上の順位まで", "下の順位まで"]
+                    df['top_disp'] = df.apply(lambda row: "🏆 現在1位" if row['rank'] == 1 else f"{row['top']:,} 個", axis=1)
+                    
+                    summary_df = df[["rank", "name", "point", "score", "top_disp", "up", "down"]].copy()
+                    summary_df.columns = ["順位", "ギフト名", "ポイント単価", "獲得数", "1位まで", "上の順位まで", "下の順位まで"]
                     st.dataframe(summary_df, use_container_width=True, hide_index=True)
                     st.divider()
+                    
                     for item in results:
                         with st.container():
                             col1, col2, col3 = st.columns([1, 4, 2])
@@ -187,15 +195,17 @@ if run and room_id_input:
                                 st.write(f"ポイント単価: **{item['point']:,}** ｜ 獲得数: **{item['score']:,} 個**")
                             with col3:
                                 st.metric("順位", f"{item['rank']}位")
-                                if item['up'] is not None: st.write(f"🔼 あと **{item['up']:,}** 個")
-                                elif item['rank'] == 1: st.write("🏆 **現在1位**")
-                                if item['down'] is not None: st.write(f"🔽 あと **{item['down']:,}** 個")
+                                if item['rank'] == 1:
+                                    st.write("🏆 **現在1位**")
+                                else:
+                                    st.write(f"🥇 1位まであと **{item['top']:,}** 個")
+                                    if item['up'] is not None: st.write(f"🔼 上の順位まで **{item['up']:,}** 個")
+                                if item['down'] is not None: st.write(f"🔽 下の順位まで **{item['down']:,}** 個")
                             st.divider()
                 else:
                     st.warning(f"{target_label}で100位以内に入っているギフトがありません。")
 
         else:
-            # 穴場ギフト発掘モード
             with st.spinner('全ギフトのコスト計算中...'):
                 anaba_results = []
                 bar = st.progress(0)
@@ -209,15 +219,11 @@ if run and room_id_input:
 
             if anaba_results:
                 anaba_results.sort(key=lambda x: x['cost'])
-                
                 st.success(f"✅ {target_label} の穴場ギフトランキング（1位奪取コストの低い順）")
-                
                 st.markdown("##### 📈 穴場ギフトランキング（一覧）")
                 
-                # サマリーテーブル
                 ana_df = pd.DataFrame(anaba_results)
                 
-                # ルーム数に基づいたフラグ立て
                 def get_room_label(count):
                     if count == 0: return "💎 該当ルームなし"
                     if count <= 10: return "✨ 10ルーム以下"
@@ -231,9 +237,6 @@ if run and room_id_input:
                 st.dataframe(disp_df, use_container_width=True, hide_index=True)
                 
                 st.divider()
-                # st.subheader("🏁 穴場ギフトサーチ 全リスト")
-                
-                # スキャンした全ギフトを表示
                 for item in anaba_results:
                     with st.container():
                         c1, c2, c3 = st.columns([1, 4, 2])
@@ -241,7 +244,6 @@ if run and room_id_input:
                         with c2:
                             st.markdown(f"**{item['name']}**")
                             st.caption(f"ポイント単価: {item['point']} ｜ ランクイン数: {item['total_ranked']}ルーム")
-                            # st.write(f"ポイント単価: **{item['point']:,}** ｜ 獲得数: **{item['score']:,} 個**")
                             if item['total_ranked'] == 0:
                                 st.write("🎁 現在、獲得しているルームはありません。")
                         with c3:
