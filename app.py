@@ -179,7 +179,8 @@ if run and room_id_input:
                     
                     # データの準備と「1位まで」の表記整形
                     df = pd.DataFrame(results)
-                    df['top_disp'] = df.apply(lambda row: "🏆 現在1位" if row['rank'] == 1 else f"{row['top']:,} 個", axis=1)
+                    # df['top_disp'] = df.apply(lambda row: "🏆 現在1位" if row['rank'] == 1 else f"{row['top']:,} 個", axis=1)
+                    df['top_disp'] = df.apply(lambda row: "🏆 現在1位" if row['rank'] == 1 else f"{row['top']:,}", axis=1)
                     
                     summary_df = df[["rank", "name", "point", "score", "top_disp", "up", "down"]].copy()
                     summary_df.columns = ["順位", "ギフト名", "ポイント単価", "獲得数", "1位まで", "上の順位まで", "下の順位まで"]
@@ -198,7 +199,8 @@ if run and room_id_input:
                                 if item['rank'] == 1:
                                     st.write("🏆 **現在1位**")
                                 else:
-                                    st.write(f"🥇 1位まであと **{item['top']:,}** 個")
+                                    # st.write(f"🥇 1位まであと **{item['top']:,}** 個")
+                                    st.write(f"🥇 1位まで **{item['top']:,}** 個")
                                     if item['up'] is not None: st.write(f"🔼 上の順位まで **{item['up']:,}** 個")
                                 if item['down'] is not None: st.write(f"🔽 下の順位まで **{item['down']:,}** 個")
                             st.divider()
