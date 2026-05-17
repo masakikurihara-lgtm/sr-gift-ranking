@@ -177,13 +177,20 @@ if run and room_id_input:
                     st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) の{target_label}状況")
                     st.markdown("##### 📈 ランクイン状況一覧")
                     
-                    # データの準備と「1位まで」の表記整形
+                    # データの準備と各種数値のカンマ付き表記整形
                     df = pd.DataFrame(results)
-                    # df['top_disp'] = df.apply(lambda row: "🏆 現在1位" if row['rank'] == 1 else f"{row['top']:,} 個", axis=1)
                     df['top_disp'] = df.apply(lambda row: "🏆 現在1位" if row['rank'] == 1 else f"{row['top']:,}", axis=1)
                     
-                    summary_df = df[["rank", "name", "point", "score", "top_disp", "up", "down"]].copy()
-                    summary_df.columns = ["順位", "ギフト名", "ポイント単価", "獲得数", "1位まで", "上の順位まで", "下の順位まで"]
+                    # テーブル表示用に数値をカンマ文字列に一括変換
+                    summary_df = pd.DataFrame()
+                    summary_df["順位"] = df["rank"]
+                    summary_df["ギフト名"] = df["name"]
+                    summary_df["ポイント単価"] = df["point"].apply(lambda x: f"{x:,}")
+                    summary_df["獲得数"] = df["score"].apply(lambda x: f"{x:,}")
+                    summary_df["1位まで"] = df["top_disp"]
+                    summary_df["上の順位まで"] = df["up"].apply(lambda x: f"{x:,}" if pd.notnull(x) else "-")
+                    summary_df["下の順位まで"] = df["down"].apply(lambda x: f"{x:,}" if pd.notnull(x) else "-")
+                    
                     st.dataframe(summary_df, use_container_width=True, hide_index=True)
                     st.divider()
                     
@@ -199,7 +206,6 @@ if run and room_id_input:
                                 if item['rank'] == 1:
                                     st.write("🏆 **現在1位**")
                                 else:
-                                    # st.write(f"🥇 1位まであと **{item['top']:,}** 個")
                                     st.write(f"🥇 1位まで **{item['top']:,}** 個")
                                     if item['up'] is not None: st.write(f"🔼 上の順位まで **{item['up']:,}** 個")
                                 if item['down'] is not None: st.write(f"🔽 下の順位まで **{item['down']:,}** 個")
@@ -230,12 +236,18 @@ if run and room_id_input:
                     if count == 0: return "💎 該当ルームなし"
                     if count <= 10: return "✨ 10ルーム以下"
                     if count <= 25: return "🔍 25ルーム以下"
-                    return f"{count}ルーム"
+                    return f"{count:,}ルーム"
 
                 ana_df['注目度'] = ana_df['total_ranked'].apply(get_room_label)
                 
-                disp_df = ana_df[['注目度', 'name', 'point', 'top_score', 'cost']].copy()
-                disp_df.columns = ["ランクイン数", "ギフト名", "ポイント単価", "1位の獲得数", "1位奪取必要pt"]
+                # テーブル表示用に数値をカンマフォーマットした新しいDataFrameを作成
+                disp_df = pd.DataFrame()
+                disp_df["ランクイン数"] = ana_df["注目度"]
+                disp_df["ギフト名"] = ana_df["name"]
+                disp_df["ポイント単価"] = ana_df["point"].apply(lambda x: f"{x:,}")
+                disp_df["1位の獲得数"] = ana_df["top_score"].apply(lambda x: f"{x:,}")
+                disp_df["1位奪取必要pt"] = ana_df["cost"].apply(lambda x: f"{x:,}")
+                
                 st.dataframe(disp_df, use_container_width=True, hide_index=True)
                 
                 st.divider()
@@ -245,13 +257,13 @@ if run and room_id_input:
                         with c1: st.image(item['img'], width=70)
                         with c2:
                             st.markdown(f"**{item['name']}**")
-                            st.caption(f"ポイント単価: {item['point']} ｜ ランクイン数: {item['total_ranked']}ルーム")
+                            st.caption(f"ポイント単価: {item['point']:,} ｜ ランクイン数: {item['total_ranked']:,}ルーム")
                             if item['total_ranked'] == 0:
                                 st.write("🎁 現在、獲得しているルームはありません。")
                         with c3:
                             st.write(f"1位奪取必要pt: **{item['cost']:,} pt**")
                             if item['top_score'] > 0:
-                                st.caption(f"（1位が {item['top_score']}個 獲得中）")
+                                st.caption(f"（1位が {item['top_score']:,}個 獲得中）")
                             else:
                                 st.caption("（1個投げれば1位）")
                     st.divider()
