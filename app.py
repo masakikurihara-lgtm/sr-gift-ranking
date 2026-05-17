@@ -175,6 +175,9 @@ if run and room_id_input:
                     display_name = results[0]['room_name']
                     profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id_input}"
                     st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) の{target_label}状況")
+                    
+                    st.markdown("▶ [ギフトランキングページへ](https://www.showroom-live.com/gift_ranking)")
+
                     st.markdown("##### 📈 ランクイン状況一覧")
                     
                     df = pd.DataFrame(results)
@@ -227,6 +230,9 @@ if run and room_id_input:
             if anaba_results:
                 anaba_results.sort(key=lambda x: x['cost'])
                 st.success(f"✅ {target_label} の穴場ギフトランキング（1位奪取コストの低い順）")
+                
+                st.markdown("▶ [ギフトランキングページへ](https://www.showroom-live.com/gift_ranking)")
+                
                 st.markdown("##### 📈 穴場ギフトランキング（一覧）")
                 
                 ana_df = pd.DataFrame(anaba_results)
