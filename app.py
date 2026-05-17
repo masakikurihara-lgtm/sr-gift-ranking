@@ -177,19 +177,18 @@ if run and room_id_input:
                     st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) の{target_label}状況")
                     st.markdown("##### 📈 ランクイン状況一覧")
                     
-                    # データの準備と各種数値のカンマ付き表記整形
                     df = pd.DataFrame(results)
-                    df['top_disp'] = df.apply(lambda row: "🏆 現在1位" if row['rank'] == 1 else f"{row['top']:,}", axis=1)
+                    df['top_disp'] = df.apply(lambda row: "🏆 現在1位" if row['rank'] == 1 else f"{int(row['top']):,}", axis=1)
                     
-                    # テーブル表示用に数値をカンマ文字列に一括変換
+                    # テーブル表示用に一度 int 型に変換してからカンマフォーマットを適用
                     summary_df = pd.DataFrame()
                     summary_df["順位"] = df["rank"]
                     summary_df["ギフト名"] = df["name"]
-                    summary_df["ポイント単価"] = df["point"].apply(lambda x: f"{x:,}")
-                    summary_df["獲得数"] = df["score"].apply(lambda x: f"{x:,}")
+                    summary_df["ポイント単価"] = df["point"].apply(lambda x: f"{int(x):,}")
+                    summary_df["獲得数"] = df["score"].apply(lambda x: f"{int(x):,}")
                     summary_df["1位まで"] = df["top_disp"]
-                    summary_df["上の順位まで"] = df["up"].apply(lambda x: f"{x:,}" if pd.notnull(x) else "-")
-                    summary_df["下の順位まで"] = df["down"].apply(lambda x: f"{x:,}" if pd.notnull(x) else "-")
+                    summary_df["上の順位まで"] = df["up"].apply(lambda x: f"{int(x):,}" if pd.notnull(x) else "-")
+                    summary_df["下の順位まで"] = df["down"].apply(lambda x: f"{int(x):,}" if pd.notnull(x) else "-")
                     
                     st.dataframe(summary_df, use_container_width=True, hide_index=True)
                     st.divider()
@@ -236,17 +235,16 @@ if run and room_id_input:
                     if count == 0: return "💎 該当ルームなし"
                     if count <= 10: return "✨ 10ルーム以下"
                     if count <= 25: return "🔍 25ルーム以下"
-                    return f"{count:,}ルーム"
+                    return f"{int(count):,}ルーム"
 
                 ana_df['注目度'] = ana_df['total_ranked'].apply(get_room_label)
                 
-                # テーブル表示用に数値をカンマフォーマットした新しいDataFrameを作成
                 disp_df = pd.DataFrame()
                 disp_df["ランクイン数"] = ana_df["注目度"]
                 disp_df["ギフト名"] = ana_df["name"]
-                disp_df["ポイント単価"] = ana_df["point"].apply(lambda x: f"{x:,}")
-                disp_df["1位の獲得数"] = ana_df["top_score"].apply(lambda x: f"{x:,}")
-                disp_df["1位奪取必要pt"] = ana_df["cost"].apply(lambda x: f"{x:,}")
+                disp_df["ポイント単価"] = ana_df["point"].apply(lambda x: f"{int(x):,}")
+                disp_df["1位の獲得数"] = ana_df["top_score"].apply(lambda x: f"{int(x):,}")
+                disp_df["1位奪取必要pt"] = ana_df["cost"].apply(lambda x: f"{int(x):,}")
                 
                 st.dataframe(disp_df, use_container_width=True, hide_index=True)
                 
