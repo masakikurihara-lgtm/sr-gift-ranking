@@ -185,7 +185,8 @@ if run and room_id_input:
                 bar.empty()
 
                 if results:
-                    results.sort(key=lambda x: x['order'])
+                    # results.sort(key=lambda x: x['order'])
+                    results.sort(key=lambda x: x['rank'])
                     st.markdown("▶ [ギフトランキングページへ](https://www.showroom-live.com/gift_ranking)")
                     display_name = results[0]['room_name']
                     profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id_input}"
