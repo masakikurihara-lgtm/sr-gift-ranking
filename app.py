@@ -148,9 +148,23 @@ if run and room_id_input:
             elif p_val == 2: calc_base = now - timedelta(days=7)
             else: calc_base = now - relativedelta(months=1)
 
-        if p_val == 1: target_ymd = calc_base.strftime('%Y%m%d')
-        elif p_val == 2: target_ymd = (calc_base - timedelta(days=calc_base.weekday())).strftime('%Y%m%d')
-        else: target_ymd = calc_base.replace(day=1).strftime('%Y%m%d')
+        # if p_val == 1: target_ymd = calc_base.strftime('%Y%m%d')
+        # elif p_val == 2: target_ymd = (calc_base - timedelta(days=calc_base.weekday())).strftime('%Y%m%d')
+        # else: target_ymd = calc_base.replace(day=1).strftime('%Y%m%d')
+        #
+        # target_label = f"{period_txt}（{target_txt}）"
+
+        if p_val == 1:
+            target_ymd = calc_base.strftime('%Y%m%d')
+            display_date = calc_base.strftime('%Y/%m/%d')
+        elif p_val == 2:
+            monday = calc_base - timedelta(days=calc_base.weekday())
+            target_ymd = monday.strftime('%Y%m%d')
+            display_date = f"{monday.strftime('%Y/%m/%d')}の週"
+        else:
+            first_day = calc_base.replace(day=1)
+            target_ymd = first_day.strftime('%Y%m%d')
+            display_date = first_day.strftime('%Y/%m')
         
         target_label = f"{period_txt}（{target_txt}）"
 
@@ -176,6 +190,10 @@ if run and room_id_input:
                     display_name = results[0]['room_name']
                     profile_url = f"https://www.showroom-live.com/room/profile?room_id={room_id_input}"
                     st.info(f"🔗 [**{display_name}** ({room_id_input})]({profile_url}) の{target_label}状況")
+
+                    # 取得時刻と対象日を表示
+                    fetched_at = now.strftime('%Y/%m/%d %H:%M:%S')
+                    st.caption(f"（取得時刻: {fetched_at} 現在 / 対象日: {display_date}）")
                     
                     st.markdown("##### 📈 ランクイン状況一覧")
                     
@@ -230,6 +248,10 @@ if run and room_id_input:
                 anaba_results.sort(key=lambda x: x['cost'])
                 st.markdown("▶ [ギフトランキングページへ](https://www.showroom-live.com/gift_ranking)")
                 st.success(f"✅ {target_label} の穴場ギフトランキング（1位奪取コストの低い順）")
+
+                # 取得時刻と対象日を表示
+                fetched_at = now.strftime('%Y/%m/%d %H:%M:%S')
+                st.caption(f"（取得時刻: {fetched_at} 現在 / 対象日: {display_date}）")
                 
                 st.markdown("##### 📈 穴場ギフトランキング（一覧）")
                 
